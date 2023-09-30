@@ -1,10 +1,21 @@
 {
   "name": "manipulator",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "author": "Keyrxng",
   "license": "MIT",
+  "scripts": {
+    "build": "yarn lint && rimraf dist && tsc",
+    "build:webpack": "webpack --config webpack.config.js",
+    "bare-test": "mocha && baseman run test/baseman",
+    "pretest": "yarn build",
+    "test": "nyc yarn bare-test",
+    "lint": "eslint --ext .ts src",
+    "format": "prettier --write src"
+  },
   "dependencies": {
+    "@sinclair/typebox": "^0.31.17",
+    "dotenv": "^16.3.1",
     "langchain": "^0.0.156",
     "openai": "^4.11.0"
   },
@@ -29,6 +40,7 @@
     "nock": "^13.3.3",
     "nyc": "^15.1.0",
     "prettier": "^3.0.3",
+    "rimraf": "^5.0.5",
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
     "tslint": "^6.1.3",
