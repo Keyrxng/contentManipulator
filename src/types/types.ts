@@ -1,6 +1,6 @@
 import { Type, Static } from '@sinclair/typebox'
-import { metaPresets } from '../utils/metaPresets'
 import { RedditStory } from '../../lib/scraper'
+import { metaPresets } from '../utils/promptUtils'
 
 const ContentInput = Type.Object({
     metaPreset: Type.String(),
