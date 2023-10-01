@@ -11,7 +11,8 @@
     "pretest": "yarn build",
     "test": "nyc yarn bare-test",
     "lint": "eslint --ext .ts src",
-    "format": "prettier --write src"
+    "format": "prettier --write src",
+    "generate": "node dist/index.js"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.31.17",

@@ -44,8 +44,8 @@ export default class extends Command {
             additional
         )
 
-        content.map((content, i) => {
-            writeToFile(`${subreddit}-${metaPreset}-${i}`, content)
+        content.map((content) => {
+            writeToFile(`${subreddit}-${metaPreset}-${content.title}`, content)
         })
 
         return content

@@ -28,7 +28,9 @@ export type AIModelResponse = Static<typeof AIModelResponse>
 export type MetaPreset = keyof typeof metaPresets
 
 export type ContentWithMetadata = {
+    title: string
     content: string
     monologue: string
     metadata: ChainValues
+    benchmark: string
 }
