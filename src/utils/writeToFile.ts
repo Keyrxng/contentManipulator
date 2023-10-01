@@ -1,11 +1,8 @@
 import * as fs from 'fs'
-import { ChainValues } from 'langchain/dist/schema'
 import path from 'path'
+import { ContentWithMetadata } from '../types'
 
-export function writeToFile(
-    filename: string,
-    data: { content: string; metadata: ChainValues }
-): void {
+export function writeToFile(filename: string, data: ContentWithMetadata): void {
     const randomId = Math.floor(Math.random() * 100000)
         .toString()
         .padStart(5, '0')
@@ -14,23 +11,42 @@ export function writeToFile(
 
     if (!data) throw new Error('No data to write')
 
-    const metadataObj = JSON.parse(data.metadata.text)
+    const json = JSON.stringify(data, null, 2)
 
-    let metadataTable = '| Key | Value |\n| --- | --- |\n'
+    const metadataObj = JSON.parse(json)
 
-    for (const [key, value] of Object.entries(metadataObj)) {
-        const displayValue = Array.isArray(value) ? value.join(', ') : value
-        metadataTable += `| ${key} | ${displayValue} |\n`
-    }
+    const metadataTable = Object.entries(metadataObj)
+        .map(([key, value]) => {
+            let displayValue: string
+            if (Array.isArray(value)) {
+                displayValue = value.join(', ')
+            } else if (typeof value === 'object') {
+                const jsonString = JSON.stringify(value, null, 2)
+                displayValue = jsonString.split('\n').join('\n    ')
+            } else {
+                displayValue = value as string
+            }
+            return `| ${key} | ${displayValue} |`
+        })
+        .join('\n')
 
     const dataToWrite = `
 # Metadata
+
+| Key                       | Value |
+|---------------------------|-------|
 ${metadataTable}
+
 
 ---
 
 # Content
 ${data.content}
+
+---
+
+# Monologue
+${data.monologue}
 `
 
     fs.writeFile(filename, dataToWrite, (err) => {

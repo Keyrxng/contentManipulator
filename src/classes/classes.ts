@@ -2,9 +2,14 @@ import { OpenAI } from 'langchain/llms/openai'
 import { RedditScraper } from '../../lib/scraper/dist/classes'
 import { RedditStory } from '../../lib/scraper/dist/types'
 import * as dotenv from 'dotenv'
-import { metaPresets, metdataPrompt } from '../utils/promptUtils'
+import {
+    metaPresets,
+    metadataPrompt,
+    monologuePrompt,
+} from '../utils/promptUtils'
 import { LLMChain } from 'langchain/chains'
 import { ChainValues } from 'langchain/dist/schema'
+import { ContentWithMetadata } from '../types'
 
 dotenv.config()
 
@@ -27,15 +32,18 @@ class ContentGenerator {
 
     async generateContent(
         subreddit: string,
-        metaPreset: keyof typeof metaPresets
-    ): Promise<{ content: string; metadata: ChainValues }[]> {
+        sort: 'hot' | 'new' | 'top' | 'rising' | 'controversial',
+        amount: number,
+        metaPreset: keyof typeof metaPresets,
+        additional?: string[]
+    ): Promise<ContentWithMetadata[]> {
         const posts: RedditStory[] = []
 
         try {
             const res = await this.scraper.fetchSubreddits(
                 [subreddit],
-                'hot',
-                2
+                sort,
+                amount
             )
             res.forEach((post) => {
                 posts.push(post)
@@ -44,58 +52,121 @@ class ContentGenerator {
             console.log(err)
         }
 
-        const prompts = posts.map((post) => post.post.content)
+        const prompts = posts.map((post) => {
+            return {
+                title: post.title,
+                body: post.post.content,
+            }
+        })
 
-        const contentPromises = prompts.map(async (prompt) => {
+        const contentPromises: Promise<ContentWithMetadata>[] = []
+
+        if (metaPreset.includes('List')) {
             const formattedPrompt = await metaPresets[metaPreset].format({
-                content: prompt,
+                content: JSON.stringify(prompts),
             })
             console.log('=====================================')
-            console.log('Generating content...')
+            console.log('Generating content with prompt...')
             const time = Date.now()
             const llmCompletion = await this.llm.predict(formattedPrompt)
             const timeTaken = Date.now() - time
             console.log('=====================================')
             console.log('Generated in:', timeTaken, 'ms')
-            return llmCompletion
-        })
+            const metadata = await this.extractMetadata(llmCompletion)
+
+            const monologue = await this.monologue(
+                llmCompletion,
+                additional || []
+            )
+
+            const contentWithMetadata = {
+                content: llmCompletion,
+                metadata: metadata,
+                monologue: monologue,
+            }
+
+            return [contentWithMetadata]
+        } else {
+            const promises = prompts.map(async (prompt) => {
+                const formattedPrompt = await metaPresets[metaPreset].format({
+                    content: prompt,
+                })
+                console.log('=====================================')
+                console.log('Generating content...')
+                const time = Date.now()
+                const llmCompletion = await this.llm.predict(formattedPrompt)
+                const timeTaken = Date.now() - time
+                console.log('Generated in:', timeTaken, 'ms')
+                console.log('=====================================')
+
+                console.log('Generating metadata...')
+                const time1 = Date.now()
+                const metadata = await this.extractMetadata(llmCompletion)
+                const time1Taken = Date.now() - time1
+                console.log('Generated in:', time1Taken, 'ms')
+
+                console.log('Generating monologue...')
+                const time2 = Date.now()
+                const monologue = await this.monologue(
+                    llmCompletion,
+                    additional || []
+                )
+                const time2Taken = Date.now() - time2
+                console.log('Generated in:', time2Taken, 'ms')
+                console.log('=====================================')
+
+                const contentWithMetadata: ContentWithMetadata = {
+                    content: llmCompletion,
+                    monologue: monologue,
+                    metadata: metadata,
+                }
+
+                return contentWithMetadata
+            })
+            contentPromises.push(...promises)
+        }
 
         const content = await Promise.all(contentPromises)
 
-        const metadata = await this.extractMetadata(content)
-
-        const contentWithMetadata = content.map((content, i) => {
-            return {
-                content,
-                metadata: metadata[i],
-            }
-        })
-
-        return contentWithMetadata
+        return content
     }
 
-    async extractMetadata(content: string[]): Promise<ChainValues[]> {
-        const metadataPromises = content.map(async (story) => {
-            console.log('=====================================')
-            console.log('Extracting metadata...')
+    async extractMetadata(content: string): Promise<ChainValues> {
+        console.log('=====================================')
+        console.log('Extracting metadata...')
 
-            const chain = new LLMChain({
-                llm: this.llm,
-                prompt: metdataPrompt,
-            })
-
-            const time = Date.now()
-            const metadata = await chain.call({ story_content: story })
-            const timeTaken = Date.now() - time
-
-            console.log('=====================================')
-            console.log('Extracted in:', timeTaken, 'ms')
-
-            return metadata
+        const chain = new LLMChain({
+            llm: this.llm,
+            prompt: metadataPrompt,
         })
 
-        const metadataArray = await Promise.all(metadataPromises)
-        return metadataArray
+        const time = Date.now()
+        const metadata = await chain.call({ story_content: content })
+        const timeTaken = Date.now() - time
+
+        console.log('=====================================')
+        console.log('Extracted in:', timeTaken, 'ms')
+
+        console.log('=====================================')
+
+        return metadata
+    }
+
+    // ["Be a motivational speaker", "Aggression and Warriorism", "Be witty and humorous"]
+    async monologue(content: string, additional: string[]): Promise<string> {
+        const adds = additional.map((adj) => `* ${adj}`).join('\n') || ''
+        const formattedPrompt = await monologuePrompt.format({
+            additional_info: adds,
+            monologue: content,
+        })
+        console.log('=====================================')
+        console.log('Generating monologue...')
+        const time = Date.now()
+        const llmCompletion = await this.llm.predict(formattedPrompt)
+        const timeTaken = Date.now() - time
+        console.log('=====================================')
+        console.log('Generated in:', timeTaken, 'ms')
+        return llmCompletion
     }
 }
 

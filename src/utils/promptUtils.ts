@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BasePromptTemplate, PromptTemplate } from 'langchain/prompts'
+import { PromptTemplate } from 'langchain/prompts'
 import { ParamsFromFString } from 'langchain/dist/prompts/prompt'
-import { BasePromptValue } from 'langchain/dist/schema'
 
 const disclaimer = `
 While some stories may contain elements of gore or disturbing themes, all material is purely imaginative and should not be taken as real or factual.
@@ -34,35 +33,29 @@ export const metaPresets = {
     ),
 }
 
-export const metadataPromptString: BasePromptTemplate<
-    any,
-    BasePromptValue,
-    any
-> =
-    `Please analyze the given story and extract the following information, replying in pure JSON format only:
+export const monologuePrompt = PromptTemplate.fromTemplate(`
+You are a voice actor hired to read the following monologue. Please read it in a way that is appropriate for the given context and tone.
+It may be a fictional story, educational piece, a list of facts or interesting information but it should be read in a way that is engaging and entertaining.
 
-"Story Title": "...",
-"One Sentence Summary": "...",
-"Setting Descriptions": "...",
-"Main Themes": ["...", "...", "..."],
-"Emotional Tone": "...",
-"Narrative Style": "...",
-"Conflict Types": ["...", "..."],
-"Resolution or Ending Type": "...",
-"Moral or Message Conveyed": "..."
-` as any
+The following additional information is provided to help you read the monologue in the correct way:
+{additional_info}
 
-export const metdataPrompt = PromptTemplate.fromTemplate(
+----------------------------------------
+
+Monologue: {monologue}
+`)
+
+export const metadataPrompt = PromptTemplate.fromTemplate(
     `
 Please analyze the given story and extract the following information, replying in pure JSON format only:
 
 "Story Title": "...",
 "One Sentence Summary": "...",
 "Setting Descriptions": "...",
-"Main Themes": ["...", "...", "..."],
+"Main Themes": "...",
 "Emotional Tone": "...",
 "Narrative Style": "...",
-"Conflict Types": ["...", "..."],
+"Conflict Types": "...",
 "Resolution or Ending Type": "...",
 "Moral or Message Conveyed": "..."
 

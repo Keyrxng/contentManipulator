@@ -1,6 +1,7 @@
 import { Type, Static } from '@sinclair/typebox'
 import { RedditStory } from '../../lib/scraper'
 import { metaPresets } from '../utils/promptUtils'
+import { ChainValues } from 'langchain/dist/schema'
 
 const ContentInput = Type.Object({
     metaPreset: Type.String(),
@@ -25,3 +26,9 @@ const AIModelResponse = Type.Object({
 export type AIModelResponse = Static<typeof AIModelResponse>
 
 export type MetaPreset = keyof typeof metaPresets
+
+export type ContentWithMetadata = {
+    content: string
+    monologue: string
+    metadata: ChainValues
+}

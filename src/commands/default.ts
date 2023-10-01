@@ -1,8 +1,7 @@
 import { Command, command, param } from 'clime'
 import { ContentGenerator } from '../classes/classes'
-import { MetaPreset } from '../types'
+import { ContentWithMetadata, MetaPreset } from '../types'
 import { writeToFile } from '../utils/writeToFile'
-import { ChainValues } from 'langchain/dist/schema'
 
 @command({
     description: 'Generate content based on a subreddit and meta preset',
@@ -15,15 +14,34 @@ export default class extends Command {
         })
         subreddit: string,
         @param({
-            description: 'Meta preset name',
+            description:
+                'Meta preset name (top5List, top10List, scaryStory, funnyStory, creepyPasta, educational)',
             required: true,
         })
-        metaPreset: string
-    ): Promise<{ content: string; metadata: ChainValues }[]> {
+        metaPreset: string,
+        @param({
+            description: 'Amount of posts to scrape',
+            required: true,
+        })
+        amount: number,
+        @param({
+            description: 'Sort type (hot, new, top, rising, controversial)',
+            required: true,
+        })
+        sort: 'hot' | 'new' | 'top' | 'rising' | 'controversial',
+        @param({
+            description: 'Additional info to alter output',
+            required: false,
+        })
+        additional?: string[]
+    ): Promise<ContentWithMetadata[]> {
         const contentGenerator = new ContentGenerator()
         const content = await contentGenerator.generateContent(
             subreddit,
-            metaPreset as MetaPreset
+            sort,
+            amount,
+            metaPreset as MetaPreset,
+            additional
         )
 
         content.map((content, i) => {
