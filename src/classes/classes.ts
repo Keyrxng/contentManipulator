@@ -89,22 +89,27 @@ class ContentGenerator {
         } else {
             const promises = prompts.map(async (prompt) => {
                 const formattedPrompt = await metaPresets[metaPreset].format({
-                    content: prompt,
+                    content: `Title: ${prompt.title}\n \n Script: ${prompt.body}`,
                 })
                 console.log('=====================================')
                 console.log('Generating content...')
+                console.log('Prompt:', formattedPrompt)
                 const time = Date.now()
                 const llmCompletion = await this.llm.predict(formattedPrompt)
                 const timeTaken = Date.now() - time
                 console.log('Generated in:', timeTaken, 'ms')
+                console.log('llmCompletion:', llmCompletion)
                 console.log('=====================================')
 
+                console.log('=====================================')
                 console.log('Generating metadata...')
                 const time1 = Date.now()
                 const metadata = await this.extractMetadata(llmCompletion)
                 const time1Taken = Date.now() - time1
                 console.log('Generated in:', time1Taken, 'ms')
+                console.log('=====================================')
 
+                console.log('=====================================')
                 console.log('Generating monologue...')
                 const time2 = Date.now()
                 const monologue = await this.monologue(
@@ -113,6 +118,7 @@ class ContentGenerator {
                 )
                 const time2Taken = Date.now() - time2
                 console.log('Generated in:', time2Taken, 'ms')
+                console.log('monologue:', monologue)
                 console.log('=====================================')
 
                 const contentWithMetadata: ContentWithMetadata = {
@@ -132,9 +138,6 @@ class ContentGenerator {
     }
 
     async extractMetadata(content: string): Promise<ChainValues> {
-        console.log('=====================================')
-        console.log('Extracting metadata...')
-
         const chain = new LLMChain({
             llm: this.llm,
             prompt: metadataPrompt,
@@ -144,9 +147,10 @@ class ContentGenerator {
         const metadata = await chain.call({ story_content: content })
         const timeTaken = Date.now() - time
 
+        console.log('metadata: ', metadata)
+
         console.log('=====================================')
         console.log('Extracted in:', timeTaken, 'ms')
-
         console.log('=====================================')
 
         return metadata

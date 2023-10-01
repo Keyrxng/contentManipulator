@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as fs from 'fs'
 import path from 'path'
 import { ContentWithMetadata } from '../types'
@@ -11,24 +12,13 @@ export function writeToFile(filename: string, data: ContentWithMetadata): void {
 
     if (!data) throw new Error('No data to write')
 
-    const json = JSON.stringify(data, null, 2)
+    const metadata = JSON.parse(data.metadata.text) as Record<string, any>
 
-    const metadataObj = JSON.parse(json)
+    let metadataTable = ''
 
-    const metadataTable = Object.entries(metadataObj)
-        .map(([key, value]) => {
-            let displayValue: string
-            if (Array.isArray(value)) {
-                displayValue = value.join(', ')
-            } else if (typeof value === 'object') {
-                const jsonString = JSON.stringify(value, null, 2)
-                displayValue = jsonString.split('\n').join('\n    ')
-            } else {
-                displayValue = value as string
-            }
-            return `| ${key} | ${displayValue} |`
-        })
-        .join('\n')
+    for (const key in metadata) {
+        metadataTable += `| ${key} | ${metadata[key]} |\n`
+    }
 
     const dataToWrite = `
 # Metadata

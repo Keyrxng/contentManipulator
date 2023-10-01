@@ -47,7 +47,8 @@ Monologue: {monologue}
 
 export const metadataPrompt = PromptTemplate.fromTemplate(
     `
-Please analyze the given story and extract the following information, replying in pure JSON format only:
+Please analyze the given story and extract the following information, replying in pure JSON format only.
+You need to ensure that it is valid JSON, otherwise the system will not accept it.
 
 "Story Title": "...",
 "One Sentence Summary": "...",
