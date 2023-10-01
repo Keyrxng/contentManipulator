@@ -18,10 +18,10 @@ class ContentGenerator {
     private llm: OpenAI
     private apiKey?: string =
         process.env.OPENAI_API_KEY || dotenv.config().parsed?.OPENAI_API_KEY
+    private lovoApiKey?: string =
+        process.env.LOVO_TTS_KEY || dotenv.config().parsed?.LOVO_TTS_KEY
 
     constructor() {
-        console.log("ContentGenerator's constructor called")
-        console.log('=====================================', this.apiKey)
         this.scraper = new RedditScraper()
         this.llm = new OpenAI({
             openAIApiKey: this.apiKey,
@@ -170,7 +170,53 @@ class ContentGenerator {
         const timeTaken = Date.now() - time
         console.log('=====================================')
         console.log('Generated in:', timeTaken, 'ms')
+
+        // might break this into a command which takes a path to the monologues folder
+        // const tts = await this.textToSpeech(llmCompletion)
+
         return llmCompletion
+    }
+
+    async textToSpeech(content: string): Promise<string> {
+        if (!this.lovoApiKey) throw new Error('No lovo api key provided')
+
+        const createJobOptions = {
+            method: 'POST',
+            headers: {
+                accept: 'application/json',
+                'content-type': 'application/json',
+                'X-API-KEY': this.lovoApiKey,
+            },
+            body: JSON.stringify({
+                text: content,
+                speed: 1,
+            }),
+        }
+
+        const createJobResponse = await fetch(
+            'https://api.genny.lovo.ai/api/v1/tts',
+            createJobOptions
+        )
+        const createJobJson = await createJobResponse.json()
+        const jobId = createJobJson.id
+
+        const retrieveJobOptions = {
+            method: 'GET',
+            headers: {
+                accept: 'application/json',
+                'X-API-KEY': this.lovoApiKey,
+            },
+        }
+
+        const retrieveJobResponse = await fetch(
+            `https://api.genny.lovo.ai/api/v1/tts/${jobId}`,
+            retrieveJobOptions
+        )
+        const retrieveJobJson = await retrieveJobResponse.json()
+
+        const audioUrl = retrieveJobJson.audioUrl
+
+        return audioUrl
     }
 }
 
