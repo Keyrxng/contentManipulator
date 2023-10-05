@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { OpenAI } from 'langchain/llms/openai'
 import { RedditScraper } from '../../lib/scraper/dist/classes'
 import { RedditStory } from '../../lib/scraper/dist/types'
@@ -11,12 +13,204 @@ import {
 import { LLMChain } from 'langchain/chains'
 import { ChainValues } from 'langchain/dist/schema'
 import { ContentWithMetadata } from '../types'
+import { Tool } from 'langchain/tools'
+import {
+    ChainStepExecutor,
+    LLMPlanner,
+    PlanAndExecuteAgentExecutor,
+} from 'langchain/experimental/plan_and_execute'
+import * as fs from 'fs'
+import { ChatOpenAI } from 'langchain/chat_models/openai'
+import { ConversationSummaryMemory } from 'langchain/memory'
+import { CallbackManagerForToolRun } from 'langchain/dist/callbacks'
+
+// import {
+//     JsonMarkdownStructuredOutputParser,
+//     StructuredOutputParser,
+// } from 'langchain/output_parsers'
+// import { RunnableSequence } from 'langchain/schema/runnable'
+// import { PromptTemplate } from 'langchain/prompts'
+// import { z } from 'zod'
 
 dotenv.config()
 
-class ContentGenerator {
+class FileWriteTool extends Tool {
+    name: string = 'FileWriteTool'
+    description: string = 'Writes a file to the project directory'
+    protected _call(
+        arg: any,
+        _runManager?: CallbackManagerForToolRun | undefined
+    ): Promise<string> {
+        const file = JSON.parse(arg)
+        const path = process.cwd() + '/output/data/'
+
+        console.log('====================PATH====================')
+        console.log(path)
+        console.log('====================PATH====================')
+        fs.writeFileSync(process.cwd(), file.content)
+        return Promise.resolve('File written successfully')
+    }
+}
+
+class ContentScraperTool extends Tool {
+    private scraper = new RedditScraper()
+    name = 'Content Generation Tool'
+    description =
+        'Scrapes the inputted subreddit and generates content (args: subreddit, sort, amount)'
+
+    protected _call(
+        args: any,
+        _runManager?: CallbackManagerForToolRun | undefined
+    ): Promise<string> {
+        const subreddit = args.subreddit
+        const sort = args.sort
+        const amount = args.amount
+
+        const scrapedContent = this.scraper.fetchSubreddits(
+            [subreddit],
+            sort,
+            amount
+        )
+
+        return new Promise((resolve, reject) => {
+            scrapedContent
+                .then((res) => {
+                    const content = res.map((post) => {
+                        post.post.content = post.post.content.replace(
+                            /\n/g,
+                            '\\n'
+                        )
+                        return post
+                    })
+
+                    resolve(JSON.stringify(content))
+                })
+                .catch((err) => {
+                    reject(err)
+                })
+        })
+    }
+}
+
+class ContentGeneratorTool extends Tool {
+    name = 'One-Shot Content Enhancement Agent'
+    description =
+        'Enhances scraped content by generating summaries, tags, and additional context'
+    generator = new ContentGeneratorClass()
+    llm = this.generator.llm
+
+    constructor() {
+        super()
+    }
+
+    protected _call(
+        arg: any,
+        _runManager?: CallbackManagerForToolRun | undefined
+    ): Promise<string> {
+        const subreddit = arg.subreddit
+        const sort = arg.sort
+        const amount = arg.amount
+        const metaPreset = arg.metaPreset
+        const additional = arg.additional
+
+        return new Promise((resolve, reject) => {
+            this.generator
+                .generateContent(
+                    subreddit,
+                    sort,
+                    amount,
+                    metaPreset,
+                    additional
+                )
+                .then((res) => {
+                    resolve(JSON.stringify(res))
+                })
+                .catch((err) => {
+                    reject(err)
+                })
+        })
+    }
+}
+
+class MetadataExtractorTool extends Tool {
+    name = 'Metadata Extraction Tool'
+    description = 'Extracts metadata from content'
+
+    generator = new ContentGeneratorClass()
+
+    protected _call(
+        arg: any,
+        _runManager?: CallbackManagerForToolRun | undefined
+    ): Promise<string> {
+        const content = arg.content
+
+        return new Promise((resolve, reject) => {
+            this.generator
+                .extractMetadata(content)
+                .then((res) => {
+                    resolve(JSON.stringify(res))
+                })
+                .catch((err) => {
+                    reject(err)
+                })
+        })
+    }
+}
+
+class ContentBenchmarker extends Tool {
+    name = 'Content Benchmarking Tool'
+    description = 'Benchmarks content'
+
+    generator = new ContentGeneratorClass()
+
+    protected _call(
+        arg: any,
+        _runManager?: CallbackManagerForToolRun | undefined
+    ): Promise<string> {
+        const content = arg.content
+        const metadata = arg.metadata
+
+        return new Promise((resolve, reject) => {
+            this.generator
+                .benchmarkContent(content, metadata)
+                .then((res) => {
+                    resolve(JSON.stringify(res))
+                })
+                .catch((err) => {
+                    reject(err)
+                })
+        })
+    }
+}
+
+class TextToSpeech extends Tool {
+    name = 'Text To Speech Tool'
+    description = 'Converts text to speech'
+
+    generator = new ContentGeneratorClass()
+
+    protected _call(
+        arg: any,
+        _runManager?: CallbackManagerForToolRun | undefined
+    ): Promise<string> {
+        const content = arg.content
+
+        return new Promise((resolve, reject) => {
+            this.generator
+                .textToSpeech(content)
+                .then((res) => {
+                    resolve(JSON.stringify(res))
+                })
+                .catch((err) => {
+                    reject(err)
+                })
+        })
+    }
+}
+
+class ContentGeneratorClass {
     private scraper: RedditScraper
-    private llm: OpenAI
+    llm: OpenAI
     private apiKey?: string =
         process.env.OPENAI_API_KEY || dotenv.config().parsed?.OPENAI_API_KEY
     private lovoApiKey?: string =
@@ -360,4 +554,179 @@ class ContentGenerator {
     }
 }
 
-export { ContentGenerator }
+class GeneratorAgent extends PlanAndExecuteAgentExecutor {
+    tools: [
+        ContentScraperTool,
+        ContentGeneratorTool,
+        MetadataExtractorTool,
+        ContentBenchmarker,
+        TextToSpeech,
+    ]
+    defaultPlanner: LLMPlanner
+    defaultStepExecutor: ChainStepExecutor
+    llm: OpenAI
+    llmKey?: string =
+        process.env.OPENAI_API_KEY || dotenv.config().parsed?.OPENAI_API_KEY
+
+    executor: PlanAndExecuteAgentExecutor
+    memory: ConversationSummaryMemory
+    chatModel: ChatOpenAI
+
+    constructor(
+        tools: [
+            ContentScraperTool,
+            ContentGeneratorTool,
+            MetadataExtractorTool,
+            ContentBenchmarker,
+            TextToSpeech,
+        ]
+    ) {
+        super({
+            planner: PlanAndExecuteAgentExecutor.getDefaultPlanner({
+                llm: tools[1].llm,
+            }),
+            stepExecutor: PlanAndExecuteAgentExecutor.getDefaultStepExecutor({
+                llm: tools[1].llm,
+                tools: [tools[0], tools[1], tools[2], tools[3], tools[4]],
+            }),
+        })
+
+        this.defaultPlanner = PlanAndExecuteAgentExecutor.getDefaultPlanner({
+            llm: this.llm,
+        })
+
+        this.defaultStepExecutor =
+            PlanAndExecuteAgentExecutor.getDefaultStepExecutor({
+                llm: this.llm,
+                tools: [tools[0], tools[1], tools[2], tools[3], tools[4]],
+            })
+
+        this.llm = new OpenAI({
+            openAIApiKey: this.llmKey,
+            modelName: 'gpt-3.5-turbo-16k',
+            maxTokens: -1,
+            temperature: 0,
+        })
+        this.chatModel = new ChatOpenAI({
+            openAIApiKey: this.llmKey,
+            modelName: 'gpt-3.5-turbo-16k',
+            verbose: true,
+            maxTokens: -1,
+        })
+        this.memory = new ConversationSummaryMemory({
+            memoryKey: 'chat_history',
+            llm: this.chatModel,
+        })
+
+        this.executor = new PlanAndExecuteAgentExecutor({
+            planner: this.defaultPlanner,
+            stepExecutor: this.defaultStepExecutor,
+        })
+
+        this.tools = tools
+    }
+
+    async execute(prompt: string): Promise<void> {
+        await this.executor.call({ prompt, memory: this.memory })
+    }
+}
+
+class AgentGenny extends Tool {
+    name = 'Agent Genny'
+    description =
+        'Genny is a self-contained Plan-And-Execute agent, she specializes in generating content from Reddit posts, she just needs to know the subreddit name, the sort type, and the amount of posts to scrape and she should be able to handle the rest.'
+    generator = new GeneratorAgent([
+        new ContentScraperTool(),
+        new ContentGeneratorTool(),
+        new MetadataExtractorTool(),
+        new ContentBenchmarker(),
+        new TextToSpeech(),
+    ])
+    llm = this.generator.llm
+
+    protected _call(
+        arg: any,
+        _runManager?: CallbackManagerForToolRun | undefined
+    ): Promise<string> {
+        const prompt = arg.prompt
+
+        return new Promise((resolve, reject) => {
+            this.generator
+                .execute(prompt)
+                .then((res) => {
+                    resolve(JSON.stringify(res))
+                })
+                .catch((err) => {
+                    reject(err)
+                })
+        })
+    }
+}
+
+class RedditContentAgent extends PlanAndExecuteAgentExecutor {
+    tools: [AgentGenny, FileWriteTool]
+    llm: OpenAI = new OpenAI({
+        openAIApiKey: this.llmKey,
+        modelName: 'gpt-3.5-turbo-16k',
+        maxTokens: -1,
+        temperature: 0,
+    })
+    llmKey?: string =
+        process.env.OPENAI_API_KEY || dotenv.config().parsed?.OPENAI_API_KEY
+
+    executor: PlanAndExecuteAgentExecutor
+    memory: ConversationSummaryMemory
+    chatModel: ChatOpenAI
+
+    constructor(tools: [AgentGenny, FileWriteTool]) {
+        super({
+            planner: PlanAndExecuteAgentExecutor.getDefaultPlanner({
+                llm: tools[0].llm,
+            }),
+            stepExecutor: PlanAndExecuteAgentExecutor.getDefaultStepExecutor({
+                llm: tools[0].llm,
+                tools: [tools[0], tools[1]],
+            }),
+        })
+
+        this.chatModel = new ChatOpenAI({
+            openAIApiKey: this.llmKey,
+            modelName: 'gpt-3.5-turbo-16k',
+            verbose: true,
+            maxTokens: -1,
+        })
+        this.memory = new ConversationSummaryMemory({
+            memoryKey: 'chat_history',
+            llm: this.chatModel,
+        })
+
+        this.executor = new PlanAndExecuteAgentExecutor({
+            planner: PlanAndExecuteAgentExecutor.getDefaultPlanner({
+                llm: this.chatModel,
+            }),
+            stepExecutor: PlanAndExecuteAgentExecutor.getDefaultStepExecutor({
+                llm: this.chatModel,
+                tools: [tools[0], tools[1]],
+            }),
+        })
+
+        this.tools = tools
+    }
+
+    async execute(prompt: string): Promise<ChainValues> {
+        const res = await this.executor.call({ prompt })
+        return res
+    }
+}
+
+export {
+    ContentGeneratorClass,
+    ContentGeneratorTool,
+    ContentScraperTool,
+    ContentBenchmarker,
+    MetadataExtractorTool,
+    TextToSpeech,
+    AgentGenny,
+    RedditContentAgent,
+    FileWriteTool,
+}

@@ -33,19 +33,6 @@ export const metaPresets = {
     ),
 }
 
-export const monologuePrompt = PromptTemplate.fromTemplate(`
-You are a voice actor hired to read the following monologue. Please read it in a way that is appropriate for the given context and tone.
-It may be a fictional story, educational piece, a list of facts or interesting information but it should be read in a way that is engaging and entertaining.
-Always read in the first person, as if you are the one telling the story or conveying the information.
-
-The following additional information is provided to help you read the monologue in the correct way:
-{additional_info}
-
-----------------------------------------
-
-Monologue: {monologue}
-`)
-
 export const metadataPrompt = PromptTemplate.fromTemplate(
     `
 Please analyze the given story and extract the following information, replying in pure JSON format only.
@@ -107,6 +94,19 @@ Evaluation Criteria:
 {story_content}
     `
 )
+
+export const monologuePrompt = PromptTemplate.fromTemplate(`
+You are a voice actor hired to read the following monologue. Please read it in a way that is appropriate for the given context and tone.
+It may be a fictional story, educational piece, a list of facts or interesting information but it should be read in a way that is engaging and entertaining.
+Always read in the first person, as if you are the one telling the story or conveying the information.
+
+The following additional information is provided to help you read the monologue in the correct way:
+{additional_info}
+
+----------------------------------------
+
+Monologue: {monologue}
+`)
 
 export async function generatePrompt(
     metaPresetKey: keyof typeof metaPresets,

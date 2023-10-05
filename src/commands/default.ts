@@ -1,5 +1,5 @@
 import { Command, command, param } from 'clime'
-import { ContentGenerator } from '../classes/classes'
+import { ContentGeneratorClass } from '../classes/classes'
 import { ContentWithMetadata, MetaPreset } from '../types'
 import { writeToFile } from '../utils/writeToFile'
 
@@ -35,7 +35,7 @@ export default class extends Command {
         })
         additional?: string[]
     ): Promise<ContentWithMetadata[]> {
-        const contentGenerator = new ContentGenerator()
+        const contentGenerator = new ContentGeneratorClass()
         const content = await contentGenerator.generateContent(
             subreddit,
             sort,
